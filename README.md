@@ -4,4 +4,4 @@ FREE BUAT KALIAN !!
 
 Comand Run Install Thema
 
-bash <(curl https://raw.githubusercontent.com/Windaa014/Rafaxamalia/main/install.sh)
+bash <(curl https://raw.githubusercontent.com/Windaa014/auto/main/install.sh)
