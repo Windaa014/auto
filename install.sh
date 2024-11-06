@@ -62,7 +62,7 @@ check_token() {
   echo -e "${YELLOW}MASUKAN AKSES TOKEN :${NC}"
   read -r USER_TOKEN
 
-  if [ "$USER_TOKEN" = "freebywindhost" ]; then
+  if [ "$USER_TOKEN" = "windaslebew" ]; then
     echo -e "${GREEN}AKSES BERHASIL${NC}}"
   else
     echo -e "${GREEN}Selamat datang di auto install by windhost${NC}"
