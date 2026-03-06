@@ -6,10 +6,8 @@
 # © WINDAHOSTING
 # ================================================
 
-set -e  # Exit on error
-
 # =============== COLOR DEFINITIONS ==============
-BLUE='\033[0;34m'
+BLUE='\033[0;34m'       
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -21,8 +19,8 @@ BOLD='\033[1m'
 # ================ CONFIGURATION =================
 PTERODACTYL_DIR="/var/www/pterodactyl"
 TEMP_DIR="/root/pterodactyl-temp"
-NODE_MAJOR=20  # Default Node version 20 (LTS)
-SCRIPT_VERSION="2.0.0"
+NODE_MAJOR=20
+SCRIPT_VERSION="2.0.1"
 
 # ================ GITHUB RAW URLS ===============
 REPO_BASE="https://raw.githubusercontent.com/gitfdil1248/thema/main"
@@ -68,20 +66,6 @@ print_progress() {
     echo -e "${CYAN}  → $1${NC}"
 }
 
-spinner() {
-    local pid=$1
-    local delay=0.1
-    local spinstr='|/-\'
-    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-        local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-        printf "\b\b\b\b\b\b"
-    done
-    printf "    \b\b\b\b"
-}
-
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         print_error "Script ini harus dijalankan sebagai root!"
@@ -89,6 +73,58 @@ check_root() {
     fi
 }
 
+# ================ CHECK TOKEN ==============
+check_token() {
+    print_banner
+    print_section "LICENSY WINDAHOSTING"
+    echo ""
+    echo -e "${YELLOW}MASUKAN AKSES TOKEN :${NC}"
+    echo -e "${WHITE}(default: windaslebew)${NC}"
+    read -r USER_TOKEN
+    
+    if [ -z "$USER_TOKEN" ]; then
+        USER_TOKEN="windaslebew"
+    fi
+
+    if [ "$USER_TOKEN" = "windaslebew" ]; then
+        echo ""
+        print_success "AKSES BERHASIL"
+        echo -e "${GREEN}Selamat datang di auto install by windhost${NC}"
+        echo -e "${YELLOW}selamat memakai script dari windhost${NC}"
+        echo -e "${YELLOW}ini script free ya buat kalian${NC}"
+        echo -e "${YELLOW}jangan di jual belikan${NC}"
+        echo -e "${YELLOW}©WindHost${NC}"
+        sleep 3
+    else
+        echo ""
+        print_error "TOKEN SALAH!"
+        echo -e "${YELLOW}Silahkan coba lagi${NC}"
+        sleep 2
+        check_token
+    fi
+}
+
+# ================ DISPLAY WELCOME ==============
+display_welcome() {
+    print_banner
+    echo -e "${BLUE}[+] =============================================== [+]${NC}"
+    echo -e "${BLUE}[+]                AUTO INSTALLER THEMA             [+]${NC}"
+    echo -e "${BLUE}[+]                  © WINDAHOSTING                 [+]${NC}"
+    echo -e "${RED}[+] =============================================== [+]${NC}"
+    echo -e ""
+    echo -e "script ini free untuk kalian pakai sesuka hati kalian,"
+    echo -e "semoga membantu pekerjaan anda ©windhost"
+    echo -e ""
+    echo -e "𝗧𝗘𝗟𝗘𝗚𝗥𝗔𝗠 :"
+    echo -e "@OsideGirl"
+    echo -e "𝗖𝗥𝗘𝗗𝗜𝗧𝗦 :"
+    echo -e "@windhost"
+    echo -e ""
+    echo -n "Tekan Enter untuk melanjutkan..."
+    read
+}
+
+# ================ CHECK SYSTEM ==============
 check_system() {
     print_step "Memeriksa sistem..."
     
@@ -109,63 +145,121 @@ check_system() {
     fi
 
     print_success "Sistem kompatibel"
+    sleep 1
 }
 
+# ================ INSTALL DEPENDENCIES ==============
 install_dependencies() {
     print_step "Menginstall dependencies..."
     
     print_progress "Updating package list..."
-    apt update -qq > /dev/null 2>&1
+    apt update -y > /dev/null 2>&1
     
-    print_progress "Installing required packages..."
-    apt install -y -qq curl wget git unzip zip tar gzip jq nodejs npm build-essential > /dev/null 2>&1
+    print_progress "Installing required packages (curl, wget, unzip, git, jq)..."
+    apt install -y curl wget unzip zip git jq software-properties-common apt-transport-https ca-certificates gnupg lsb-release > /dev/null 2>&1
     
-    print_success "Dependencies berhasil diinstall"
+    # Check if installation was successful
+    if [ $? -eq 0 ]; then
+        print_success "Dependencies berhasil diinstall"
+    else
+        print_error "Gagal menginstall dependencies"
+        exit 1
+    fi
+    sleep 1
 }
 
+# ================ SETUP NODE.JS ==============
 setup_nodejs() {
     print_step "Menginstall Node.js v$NODE_MAJOR..."
     
     # Remove old Node.js if exists
     if command -v node &> /dev/null; then
         local current_version=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ $current_version -ge 20 && $current_version -le 24 ]]; then
-            print_info "Node.js v$current_version sudah terinstall dan kompatibel"
+        print_info "Node.js v$current_version sudah terinstall"
+        
+        if [[ $current_version -ge $NODE_MAJOR ]]; then
+            print_success "Menggunakan Node.js yang sudah ada"
             return 0
         fi
     fi
     
     print_progress "Menambahkan NodeSource repository..."
+    
+    # Remove existing nodesource repo if any
+    rm -f /etc/apt/sources.list.d/nodesource.list
+    
+    # Download and run nodesource setup script with more verbose output
     curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - > /dev/null 2>&1
     
+    if [ $? -ne 0 ]; then
+        print_error "Gagal menambahkan repository NodeSource"
+        exit 1
+    fi
+    
     print_progress "Menginstall Node.js..."
-    apt install -y -qq nodejs > /dev/null 2>&1
+    apt install -y nodejs > /dev/null 2>&1
+    
+    if [ $? -ne 0 ]; then
+        print_error "Gagal menginstall Node.js"
+        exit 1
+    fi
     
     # Install yarn globally
     print_progress "Menginstall Yarn..."
     npm install -g yarn --silent > /dev/null 2>&1
     
-    print_success "Node.js $(node -v) dan Yarn $(yarn -v) berhasil diinstall"
+    if command -v yarn &> /dev/null; then
+        print_success "Node.js $(node -v) dan Yarn $(yarn -v) berhasil diinstall"
+    else
+        print_success "Node.js $(node -v) berhasil diinstall"
+    fi
+    sleep 1
 }
 
+# ================ CHECK PTERODACTYL ==============
 check_pterodactyl() {
     print_step "Memeriksa instalasi Pterodactyl..."
     
     if [[ ! -d "$PTERODACTYL_DIR" ]]; then
         print_error "Direktori Pterodactyl tidak ditemukan!"
         print_info "Pastikan Panel Pterodactyl sudah terinstall"
-        return 1
+        echo ""
+        echo -e "${YELLOW}Apakah Anda ingin menginstall Panel Pterodactyl dulu? (y/n)${NC}"
+        read -r install_panel
+        
+        if [[ "$install_panel" =~ ^[Yy]$ ]]; then
+            install_panel_dulu
+        else
+            exit 1
+        fi
+    else
+        print_success "Pterodactyl ditemukan"
     fi
-    
-    if [[ ! -f "$PTERODACTYL_DIR/artisan" ]]; then
-        print_error "File artisan tidak ditemukan!"
-        return 1
-    fi
-    
-    print_success "Pterodactyl ditemukan"
-    return 0
+    sleep 1
 }
 
+# ================ INSTALL PANEL ==============
+install_panel_dulu() {
+    print_step "Menginstall Panel Pterodactyl..."
+    print_info "Menggunakan script installer resmi"
+    
+    bash <(curl -s https://pterodactyl-installer.se) <<EOF
+0
+y
+y
+y
+y
+EOF
+    
+    if [ $? -eq 0 ]; then
+        print_success "Panel berhasil diinstall"
+    else
+        print_error "Gagal menginstall panel"
+        exit 1
+    fi
+}
+
+# ================ BACKUP PTERODACTYL ==============
 backup_pterodactyl() {
     print_step "Membackup Pterodactyl..."
     
@@ -180,8 +274,10 @@ backup_pterodactyl() {
         print_error "Backup gagal!"
         exit 1
     fi
+    sleep 1
 }
 
+# ================ DOWNLOAD THEME ==============
 download_theme() {
     local theme_name=$1
     local theme_url=$2
@@ -189,9 +285,13 @@ download_theme() {
     
     print_step "Mendownload theme $theme_name..."
     
-    # Download theme
+    # Download theme with progress
     print_progress "Downloading from $theme_url"
-    if wget -q --show-progress --progress=bar:force "$theme_url" -O "$zip_file" 2>&1; then
+    
+    # Use wget with progress bar
+    wget -q --show-progress "$theme_url" -O "$zip_file"
+    
+    if [ $? -eq 0 ] && [ -f "$zip_file" ]; then
         print_success "Download selesai"
     else
         print_error "Download gagal!"
@@ -203,9 +303,17 @@ download_theme() {
     rm -rf "$TEMP_DIR" > /dev/null 2>&1
     mkdir -p "$TEMP_DIR"
     
-    if unzip -q "$zip_file" -d "$TEMP_DIR" > /dev/null 2>&1; then
+    unzip -q "$zip_file" -d "$TEMP_DIR" > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
         print_success "Extract selesai"
         rm -f "$zip_file"
+        
+        # Check if extracted folder contains pterodactyl folder
+        if [ -d "$TEMP_DIR/pterodactyl" ]; then
+            mv "$TEMP_DIR/pterodactyl"/* "$TEMP_DIR/" 2>/dev/null
+            rm -rf "$TEMP_DIR/pterodactyl"
+        fi
     else
         print_error "Extract gagal!"
         rm -f "$zip_file"
@@ -215,6 +323,7 @@ download_theme() {
     return 0
 }
 
+# ================ APPLY THEME ==============
 apply_theme() {
     local theme_name=$1
     
@@ -226,16 +335,32 @@ apply_theme() {
     
     cd "$PTERODACTYL_DIR"
     
-    # Install dependencies
+    # Install PHP dependencies
     print_progress "Installing PHP dependencies..."
     composer install --no-dev --optimize-autoloader --quiet > /dev/null 2>&1
     
+    if [ $? -ne 0 ]; then
+        print_error "Gagal install PHP dependencies"
+        return 1
+    fi
+    
     # Install Node dependencies
-    print_progress "Installing Node dependencies..."
-    yarn install --silent > /dev/null 2>&1
+    print_progress "Installing Node dependencies (this may take 2-3 minutes)..."
+    yarn install --silent > /dev/null 2>&1 &
+    
+    # Show spinner while yarn installs
+    local pid=$!
+    local spin='-\|/'
+    local i=0
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        printf "\r  → Installing... ${spin:$i:1} "
+        sleep 0.1
+    done
+    printf "\r  → Installing... Done!   \n"
     
     # Add react-feather if needed
-    if [[ "$theme_name" != "billing" ]]; then
+    if [[ "$theme_name" == "stellar" || "$theme_name" == "enigma" ]]; then
         print_progress "Adding react-feather..."
         yarn add react-feather --silent > /dev/null 2>&1
     fi
@@ -244,13 +369,27 @@ apply_theme() {
     print_progress "Running database migrations..."
     php artisan migrate --force --quiet > /dev/null 2>&1
     
-    # Build assets
-    print_progress "Building assets (this may take a while)..."
+    if [ $? -ne 0 ]; then
+        print_error "Gagal menjalankan migrasi"
+        return 1
+    fi
+    
+    # Special for billing theme
     if [[ "$theme_name" == "billing" ]]; then
+        print_progress "Installing billing module..."
         php artisan billing:install stable --quiet > /dev/null 2>&1
     fi
     
-    yarn build:production --silent > /dev/null 2>&1
+    # Build assets
+    print_progress "Building assets (this may take 3-5 minutes)..."
+    
+    # Try yarn build:production with fallback to yarn build
+    if yarn build:production --silent > /dev/null 2>&1; then
+        print_success "Assets berhasil dibuild"
+    else
+        print_progress "Mencoba metode build alternatif..."
+        yarn build --silent > /dev/null 2>&1
+    fi
     
     # Clear cache
     print_progress "Clearing cache..."
@@ -258,17 +397,27 @@ apply_theme() {
     php artisan config:clear --quiet > /dev/null 2>&1
     php artisan cache:clear --quiet > /dev/null 2>&1
     
+    # Set permissions
+    print_progress "Setting permissions..."
+    chown -R www-data:www-data "$PTERODACTYL_DIR"
+    chmod -R 755 "$PTERODACTYL_DIR/storage" "$PTERODACTYL_DIR/bootstrap/cache"
+    
     print_success "Theme berhasil diaplikasikan!"
+    return 0
 }
 
+# ================ CLEANUP ==============
 cleanup_temp() {
     print_step "Membersihkan file temporary..."
     rm -rf "$TEMP_DIR" > /dev/null 2>&1
     print_success "Bersih!"
+    sleep 1
 }
 
+# ================ CONFIGURE ENIGMA ==============
 configure_enigma() {
     print_step "Konfigurasi Theme Enigma"
+    echo ""
     
     echo -e "${YELLOW}Masukkan link WhatsApp (https://wa.me/...):${NC}"
     read -r LINK_WA
@@ -281,6 +430,11 @@ configure_enigma() {
     
     local dashboard_file="$TEMP_DIR/resources/scripts/components/dashboard/DashboardContainer.tsx"
     
+    # Try to find the file in different possible locations
+    if [[ ! -f "$dashboard_file" ]]; then
+        dashboard_file="$TEMP_DIR/pterodactyl/resources/scripts/components/dashboard/DashboardContainer.tsx"
+    fi
+    
     if [[ -f "$dashboard_file" ]]; then
         print_progress "Mengganti placeholder dengan nilai yang dimasukkan..."
         sed -i "s|LINK_WA|$LINK_WA|g" "$dashboard_file"
@@ -289,9 +443,11 @@ configure_enigma() {
         print_success "Konfigurasi selesai"
     else
         print_error "File konfigurasi tidak ditemukan!"
+        print_info "Melanjutkan tanpa konfigurasi..."
     fi
 }
 
+# ================ INSTALL THEME ==============
 install_theme() {
     print_banner
     print_section "INSTALL THEME PTERODACTYL"
@@ -300,11 +456,6 @@ install_theme() {
     check_root
     check_system
     check_pterodactyl
-    if [[ $? -ne 0 ]]; then
-        print_error "Pterodactyl tidak terinstall. Install panel terlebih dahulu."
-        sleep 3
-        return
-    fi
     
     # Ask for Node version
     echo ""
@@ -335,9 +486,9 @@ install_theme() {
     read -r theme_choice
     
     case $theme_choice in
-        1) theme_name="stellar"; theme_url=$(echo "${THEME_URLS[0]}" | cut -d'|' -f2) ;;
-        2) theme_name="billing"; theme_url=$(echo "${THEME_URLS[1]}" | cut -d'|' -f2) ;;
-        3) theme_name="enigma"; theme_url=$(echo "${THEME_URLS[2]}" | cut -d'|' -f2) ;;
+        1) theme_name="stellar"; theme_url="${THEME_URLS[0]##*|}" ;;
+        2) theme_name="billing"; theme_url="${THEME_URLS[1]##*|}" ;;
+        3) theme_name="enigma"; theme_url="${THEME_URLS[2]##*|}" ;;
         *) print_error "Pilihan tidak valid!"; sleep 2; return ;;
     esac
     
@@ -362,7 +513,9 @@ install_theme() {
     if ! download_theme "$theme_name" "$theme_url"; then
         print_error "Gagal mendownload theme"
         cleanup_temp
-        sleep 3
+        echo ""
+        echo -n "Tekan Enter untuk kembali ke menu..."
+        read
         return
     fi
     
@@ -371,18 +524,38 @@ install_theme() {
         configure_enigma
     fi
     
-    apply_theme "$theme_name"
-    cleanup_temp
+    if apply_theme "$theme_name"; then
+        cleanup_temp
+        
+        echo ""
+        print_success "✅ INSTALLASI SELESAI!"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "Theme $theme_name berhasil diinstall!"
+        echo -e "Backup disimpan di /root/pterodactyl-backup-*"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        
+        # Restart services
+        print_step "Merestart services..."
+        systemctl restart nginx php8.1-fpm 2>/dev/null || systemctl restart nginx php8.0-fpm 2>/dev/null
+    else
+        print_error "Installasi gagal!"
+        print_info "Mengembalikan dari backup..."
+        
+        # Restore from backup
+        latest_backup=$(ls -d /root/pterodactyl-backup-* 2>/dev/null | tail -1)
+        if [ -n "$latest_backup" ]; then
+            rm -rf "$PTERODACTYL_DIR"
+            cp -rf "$latest_backup" "$PTERODACTYL_DIR"
+            print_success "Backup dikembalikan"
+        fi
+    fi
     
     echo ""
-    print_success "✅ INSTALLASI SELESAI!"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "Theme $theme_name berhasil diinstall!"
-    echo -e "Backup disimpan di /root/pterodactyl-backup-*"
-    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    sleep 3
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ UNINSTALL THEME ==============
 uninstall_theme() {
     print_banner
     print_section "UNINSTALL THEME"
@@ -400,13 +573,24 @@ uninstall_theme() {
     
     if bash <(curl -s "${REPO_BASE}/repair.sh"); then
         print_success "Theme berhasil diuninstall!"
+        
+        # Clear cache
+        cd "$PTERODACTYL_DIR"
+        php artisan view:clear
+        php artisan config:clear
+        
+        # Restart services
+        systemctl restart nginx php8.1-fpm 2>/dev/null || systemctl restart nginx php8.0-fpm 2>/dev/null
     else
         print_error "Gagal menguninstall theme!"
     fi
     
-    sleep 3
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ CONFIGURE WINGS ==============
 configure_wings() {
     print_banner
     print_section "CONFIGURE WINGS"
@@ -416,32 +600,45 @@ configure_wings() {
     
     if [[ -z "$wings_token" ]]; then
         print_error "Token tidak boleh kosong!"
-        sleep 2
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
         return
     fi
     
     print_step "Menjalankan perintah Wings..."
     eval "$wings_token"
     
-    print_step "Menjalankan service Wings..."
-    systemctl start wings
-    systemctl enable wings > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        print_step "Menjalankan service Wings..."
+        systemctl daemon-reload
+        systemctl start wings
+        systemctl enable wings > /dev/null 2>&1
+        
+        print_success "Wings berhasil dikonfigurasi dan dijalankan!"
+    else
+        print_error "Gagal mengkonfigurasi Wings"
+    fi
     
-    print_success "Wings berhasil dikonfigurasi dan dijalankan!"
-    sleep 3
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ CREATE NODE ==============
 create_node() {
     print_banner
     print_section "CREATE NODE & LOCATION"
     
     if [[ ! -d "$PTERODACTYL_DIR" ]]; then
         print_error "Pterodactyl tidak ditemukan!"
-        sleep 2
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
         return
     fi
     
-    cd "$PTERODACTYL_DIR"
+    cd "$PTERODACTYL_DIR" || exit
     
     # Input location
     echo -e "${YELLOW}--- Informasi Location ---${NC}"
@@ -451,6 +648,14 @@ create_node() {
     read -r location_desc
     echo -n "Short Code: "
     read -r short_code
+    
+    if [[ -z "$location_name" || -z "$short_code" ]]; then
+        print_error "Nama dan Short Code wajib diisi!"
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
+        return
+    fi
     
     # Create location
     print_step "Membuat location baru..."
@@ -462,6 +667,10 @@ EOF
     
     # Get location ID
     location_id=$(php artisan tinker --execute="echo DB::table('locations')->orderBy('id', 'desc')->first()->id ?? '1';" 2>/dev/null | tail -n1)
+    
+    if [[ -z "$location_id" ]]; then
+        location_id=1
+    fi
     
     # Input node
     echo ""
@@ -479,6 +688,14 @@ EOF
     echo -n "Daemon Port (default: 8080): "
     read -r daemon_port
     daemon_port=${daemon_port:-8080}
+    
+    if [[ -z "$node_name" || -z "$domain" || -z "$ram" || -z "$disk" ]]; then
+        print_error "Data node wajib diisi lengkap!"
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
+        return
+    fi
     
     # Create node
     print_step "Membuat node baru..."
@@ -501,16 +718,25 @@ $daemon_port
 /var/lib/pterodactyl/volumes
 EOF
     
-    print_success "Node dan Location berhasil dibuat!"
-    sleep 3
+    if [ $? -eq 0 ]; then
+        print_success "Node dan Location berhasil dibuat!"
+    else
+        print_error "Gagal membuat node!"
+    fi
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ UNINSTALL PANEL ==============
 uninstall_panel() {
     print_banner
     print_section "UNINSTALL PANEL"
     
     echo -e "${RED}⚠️ PERINGATAN: Tindakan ini akan menghapus SELURUH PANEL beserta datanya!${NC}"
     echo -e "${YELLOW}Pastikan Anda sudah membackup data penting.${NC}"
+    echo ""
     echo -n "LANJUTKAN UNINSTALL? (ketik 'UNINSTALL' untuk konfirmasi): "
     read -r confirm
     
@@ -529,22 +755,29 @@ y
 EOF
     
     print_success "Panel berhasil diuninstall!"
-    sleep 3
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ HACKBACK PANEL ==============
 hackback_panel() {
     print_banner
     print_section "CREATE ADMIN USER"
     
     if [[ ! -d "$PTERODACTYL_DIR" ]]; then
         print_error "Pterodactyl tidak ditemukan!"
-        sleep 2
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
         return
     fi
     
-    cd "$PTERODACTYL_DIR"
+    cd "$PTERODACTYL_DIR" || exit
     
     echo -e "${YELLOW}Masukkan informasi admin baru:${NC}"
+    echo ""
     echo -n "Username: "
     read -r username
     echo -n "Email: "
@@ -557,6 +790,14 @@ hackback_panel() {
     echo -n "Last Name: "
     read -r last_name
     
+    if [[ -z "$username" || -z "$email" || -z "$password" ]]; then
+        print_error "Username, Email, dan Password wajib diisi!"
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
+        return
+    fi
+    
     print_step "Membuat user admin..."
     
     php artisan p:user:make <<EOF
@@ -568,10 +809,18 @@ $last_name
 $password
 EOF
     
-    print_success "User admin berhasil dibuat!"
-    sleep 3
+    if [ $? -eq 0 ]; then
+        print_success "User admin berhasil dibuat!"
+    else
+        print_error "Gagal membuat user admin!"
+    fi
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
+# ================ UBAH PASSWORD VPS ==============
 ubahpw_vps() {
     print_banner
     print_section "UBAH PASSWORD VPS"
@@ -585,13 +834,17 @@ ubahpw_vps() {
     
     if [[ "$new_password" != "$confirm_password" ]]; then
         print_error "Password tidak cocok!"
-        sleep 2
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
         return
     fi
     
     if [[ ${#new_password} -lt 8 ]]; then
         print_error "Password minimal 8 karakter!"
-        sleep 2
+        echo ""
+        echo -n "Tekan Enter untuk kembali..."
+        read
         return
     fi
     
@@ -605,12 +858,123 @@ ubahpw_vps() {
         print_error "Gagal mengubah password!"
     fi
     
-    sleep 3
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
 }
 
-show_menu() {
+# ================ CHECK NODE VERSION ==============
+check_node_version() {
     print_banner
-    echo -e "${BOLD}${WHITE}MENU UTAMA${NC}"
+    print_section "CEK VERSI NODE.JS"
+    
+    if command -v node &> /dev/null; then
+        node_version=$(node -v)
+        npm_version=$(npm -v)
+        
+        echo -e "${GREEN}Node.js:${NC} $node_version"
+        echo -e "${GREEN}NPM:${NC} $npm_version"
+        
+        if command -v yarn &> /dev/null; then
+            yarn_version=$(yarn -v)
+            echo -e "${GREEN}Yarn:${NC} $yarn_version"
+        else
+            echo -e "${RED}Yarn:${NC} Not installed"
+        fi
+    else
+        print_error "Node.js tidak terinstall!"
+    fi
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali..."
+    read
+}
+
+# ================ RESTART WINGS ==============
+restart_wings() {
+    print_banner
+    print_section "RESTART WINGS"
+    
+    if systemctl list-units --full -all | grep -Fq "wings.service"; then
+        if systemctl is-active --quiet wings; then
+            print_step "Merestart service wings..."
+            systemctl restart wings
+            sleep 2
+            if systemctl is-active --quiet wings; then
+                print_success "Wings berhasil direstart!"
+            else
+                print_error "Wings gagal direstart!"
+            fi
+        else
+            print_step "Menjalankan service wings..."
+            systemctl start wings
+            sleep 2
+            if systemctl is-active --quiet wings; then
+                print_success "Wings berhasil dijalankan!"
+            else
+                print_error "Wings gagal dijalankan!"
+            fi
+        fi
+    else
+        print_error "Service wings tidak ditemukan!"
+    fi
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali ke menu..."
+    read
+}
+
+# ================ CHECK SERVICES ==============
+check_services() {
+    print_banner
+    print_section "CEK STATUS SERVICE"
+    
+    services=("nginx" "php8.1-fpm" "php8.0-fpm" "mysql" "mariadb" "redis-server" "wings")
+    
+    for service in "${services[@]}"; do
+        if systemctl list-units --full -all | grep -Fq "$service.service"; then
+            if systemctl is-active --quiet "$service" 2>/dev/null; then
+                echo -e "${GREEN}✅ $service: Running${NC}"
+                systemctl status "$service" --no-pager | grep "Active:" | sed 's/^/     /'
+            else
+                echo -e "${RED}❌ $service: Stopped${NC}"
+            fi
+        fi
+    done
+    
+    echo ""
+    echo -n "Tekan Enter untuk kembali..."
+    read
+}
+
+# ================ SHOW MENU ==============
+show_menu() {
+    clear
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║          AUTO INSTALLER THEMA PTERODACTYL v2.0          ║${NC}"
+    echo -e "${BLUE}║                   © WINDAHOSTING 2025                    ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # ASCII Art Logo
+    echo -e "${CYAN}        _,gggggggggg.                                     ${NC}"
+    echo -e "${CYAN}    ,ggggggggggggggggg.                                   ${NC}"
+    echo -e "${CYAN}  ,ggggg        gggggggg.                                 ${NC}"
+    echo -e "${CYAN} ,ggg'               'ggg.                                ${NC}"
+    echo -e "${CYAN}',gg       ,ggg.      'ggg:                               ${NC}"
+    echo -e "${CYAN}'ggg      ,gg'''  .    ggg       Auto Installer WindaHosting${NC}"
+    echo -e "${CYAN}gggg      gg     ,     ggg      ------------------------${NC}"
+    echo -e "${CYAN}ggg:     gg.     -   ,ggg       • Telegram : @OsideGirl${NC}"
+    echo -e "${CYAN} ggg:     ggg._    _,ggg        • Credits  : WINDAHOSTING${NC}"
+    echo -e "${CYAN} ggg.    '.'''ggggggp           • Version   : v2.0.1${NC}"
+    echo -e "${CYAN}  'ggg    '-.__                                           ${NC}"
+    echo -e "${CYAN}    ggg                                                   ${NC}"
+    echo -e "${CYAN}      ggg                                                 ${NC}"
+    echo -e "${CYAN}        ggg.                                              ${NC}"
+    echo -e "${CYAN}          ggg.                                            ${NC}"
+    echo -e "${CYAN}             b.                                           ${NC}"
+    echo ""
+    echo -e "${BOLD}${WHITE}BERIKUT LIST INSTALL :${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  ${WHITE}[1]${NC}  Install Theme"
     echo -e "  ${WHITE}[2]${NC}  Uninstall Theme"
@@ -627,66 +991,16 @@ show_menu() {
     echo -n "Pilih menu [1-10/x]: "
 }
 
-check_node_version() {
-    print_banner
-    print_section "CEK VERSI NODE.JS"
-    
-    if command -v node &> /dev/null; then
-        node_version=$(node -v)
-        npm_version=$(npm -v)
-        yarn_version=$(yarn -v 2>/dev/null || echo "Not installed")
-        
-        echo -e "${GREEN}Node.js:${NC} $node_version"
-        echo -e "${GREEN}NPM:${NC} $npm_version"
-        echo -e "${GREEN}Yarn:${NC} $yarn_version"
-    else
-        print_error "Node.js tidak terinstall!"
-    fi
-    
-    echo ""
-    echo -n "Tekan Enter untuk kembali..."
-    read -r
-}
-
-restart_wings() {
-    print_banner
-    print_section "RESTART WINGS"
-    
-    if systemctl is-active --quiet wings; then
-        print_step "Merestart service wings..."
-        systemctl restart wings
-        print_success "Wings berhasil direstart!"
-    else
-        print_error "Service wings tidak aktif!"
-    fi
-    
-    sleep 3
-}
-
-check_services() {
-    print_banner
-    print_section "CEK STATUS SERVICE"
-    
-    services=("nginx" "php8.1-fpm" "mysql" "redis-server" "wings")
-    
-    for service in "${services[@]}"; do
-        if systemctl is-active --quiet "$service" 2>/dev/null; then
-            echo -e "${GREEN}✅ $service: Running${NC}"
-        else
-            echo -e "${RED}❌ $service: Stopped/Not Found${NC}"
-        fi
-    done
-    
-    echo ""
-    echo -n "Tekan Enter untuk kembali..."
-    read -r
-}
-
-# ================ MAIN EXECUTION ================
+# ================ MAIN FUNCTION ==============
 main() {
-    # Check root immediately
+    # Check root
     check_root
     
+    # Display welcome and check token
+    display_welcome
+    check_token
+    
+    # Main menu loop
     while true; do
         show_menu
         read -r MENU_CHOICE
@@ -703,7 +1017,9 @@ main() {
             9) restart_wings ;;
             10) check_services ;;
             x|X) 
-                echo -e "${GREEN}Terima kasih telah menggunakan script ini!${NC}"
+                echo -e "${GREEN}"
+                echo "Terima kasih telah menggunakan script ini!"
+                echo -e "${NC}"
                 exit 0 
                 ;;
             *)
