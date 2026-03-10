@@ -1,0 +1,5 @@
+[
+  { "username": "admin", "password": "123", "exp": "2026-12-31" },
+  { "username": "Oside", "password": "gila123", "exp": "2027-06-30" },
+  { "username": "user1", "password": "ff123", "exp": "2026-10-15" }
+]
