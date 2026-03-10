@@ -1,3 +1,4 @@
 [
-    { "username": "admin", "password": "1", "role": "admin", "exp": "2026-12-31" }
+    { "username": "admin", "password": "1", "role": "admin", "exp": "2026-12-31" },
+    { "username": "tes", "password": "1", "role": "free", "exp": "2026-12-31" }
 ]
