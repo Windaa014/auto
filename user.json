@@ -1,6 +1,6 @@
 [
     { "username": "admin", "password": "abricoy", "role": "admin", "exp": "2026-12-31" },
-    { "username": "buyertes", "password": "bebas3", "role": "premium", "exp": "2026-03-11" },
-    { "username": "buyerkoko", "password": "buyer1", "role": "free", "exp": "2026-03-15" },
+    { "username": "buyertes", "password": "beas3", "role": "premium", "exp": "2026-03-11" },
+    { "username": "buyerkoko", "password": "bur1", "role": "free", "exp": "2026-03-15" },
     { "username": "free", "password": "1230", "role": "premium", "exp": "2026-03-15" }
 ]
