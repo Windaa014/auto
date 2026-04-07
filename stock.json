@@ -30,5 +30,13 @@
     "deskripsi": "Akun Pribadi Diko Prasetya",
     "foto": "https://files.catbox.moe/e698ge.jpg",
     "status": "ready"
+  },
+  {
+    "id": 5,
+    "nama": "Akun Free Fire",
+    "harga": "250.000",
+    "deskripsi": "Sg 2 terompet",
+    "foto": "https://files.catbox.moe/267yfd.jpg",
+    "status": "ready"
   }
 ]
