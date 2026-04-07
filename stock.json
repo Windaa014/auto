@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "id": 1,
+    "nama": "Akun Free Fire",
+    "harga": "550.000",
+    "deskripsi": "Bnl on\nS8 on\nMax 1\nSg 2 evo",
+    "foto": "https://files.catbox.moe/rlqpxg.jpg",
+    "status": "ready"
+  }
+]
