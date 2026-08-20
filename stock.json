@@ -38,5 +38,12 @@
     "deskripsi": "Sg 2 terompet",
     "foto": "https://files.catbox.moe/267yfd.jpg",
     "status": "sold"
+  },
+  {
+    "foto": "https://files.catbox.moe/5m9prb.jpg",
+    "nama": "Akun FF",
+    "deskripsi": "Akun Gagah\nEvo 12 \nTw Max 4",
+    "harga": "1100.000",
+    "status": "ready"
   }
 ]
