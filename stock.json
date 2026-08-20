@@ -143,5 +143,12 @@
     "deskripsi": "Id 9 Digit\nEvo 2\nSg 2 Golden",
     "harga": "270.000",
     "status": "ready"
+  },
+  {
+    "foto": "https://files.catbox.moe/7ym4i4.jpg",
+    "nama": "Akun FF",
+    "deskripsi": "Evo 5\nS8 On\nSg 2 Lumut",
+    "harga": "450.000",
+    "status": "ready"
   }
 ]
